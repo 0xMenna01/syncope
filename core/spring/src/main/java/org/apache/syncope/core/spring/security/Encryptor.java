@@ -158,6 +158,7 @@ public final class Encryptor {
                 SecurityProperties securityProperties =
                         ApplicationContextProvider.getApplicationContext().getBean(SecurityProperties.class);
 
+
                 // Salted ...
                 digester.setAlgorithm(cipherAlgorithm.getAlgorithm().replaceFirst("S\\-", ""));
                 digester.setIterations(securityProperties.getDigester().getSaltIterations());

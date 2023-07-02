@@ -1,6 +1,5 @@
 package org.apache.syncope.core.spring.security;
 
-import org.junit.Assert;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
@@ -25,9 +24,10 @@ import java.util.Set;
 public class DummyConfigurableApplicationContext implements ConfigurableApplicationContext {
     private DefaultListableBeanFactory beanFactory;
 
-    public DummyConfigurableApplicationContext(DefaultListableBeanFactory beanFactory){
-        this.beanFactory=beanFactory;
+    public DummyConfigurableApplicationContext(DefaultListableBeanFactory beanFactory) {
+        this.beanFactory = beanFactory;
     }
+
     @Override
     public void setId(String id) {
 
