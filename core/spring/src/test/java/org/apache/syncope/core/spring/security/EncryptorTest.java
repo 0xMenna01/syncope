@@ -1,24 +1,28 @@
 package org.apache.syncope.core.spring.security;
 
-import org.apache.syncope.common.lib.types.CipherAlgorithm;
-import org.apache.syncope.core.spring.ApplicationContextProvider;
-import org.junit.*;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.mockito.*;
-import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.syncope.common.lib.types.CipherAlgorithm;
+import org.apache.syncope.core.spring.ApplicationContextProvider;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+
 
 @RunWith(Parameterized.class)
 public class EncryptorTest{
-    private static Encryptor ENCRYPTOR;
+    private static List<Encryptor> ENCRYPTORS;
     private static MockedStatic<ApplicationContextProvider> UTIL;
 
     // Parameters constructed by category partition
-    private final PlainTextValue value;
+    private final PlainTextValue plainText;
     private final CipherAlgorithm cipherAlgorithm;
 
     @BeforeClass
@@ -30,12 +34,36 @@ public class EncryptorTest{
         UTIL = Mockito.mockStatic(ApplicationContextProvider.class);
         UTIL.when(ApplicationContextProvider::getBeanFactory).thenReturn(factory);
         UTIL.when(ApplicationContextProvider::getApplicationContext).thenReturn(new DummyConfigurableApplicationContext(factory));
-        ENCRYPTOR = Encryptor.getInstance();
+
+        // Configure different instances of encryptor through different private keys.
+        List<Encryptor> encryptors = new ArrayList<>();
+
+        for (PrivateKeyType privateKey: PrivateKeyType.values()) {
+            encryptors.add(Encryptor.getInstance(privateKey.key));
+        }
+
+        ENCRYPTORS = encryptors;
     }
 
 
-    public EncryptorTest(PlainTextValue value, CipherAlgorithm cipherAlgorithm) {
-        this.value = value;
+    // Generated with https://www.random.org/strings/
+    private enum PrivateKeyType {
+        VALID_STRING("3RdZ8QfJ6wmmRHkJ"),
+        EMPTY_STRING(""),
+        INVALID_ONE_CHAR_STRING("r"),
+        INVALID_FIFTEEN_CHARS_STRING("uZskLibmHjAxqcN"),
+        NULL_STRING(null);
+
+        private String key;
+
+        PrivateKeyType(String key) {
+            this.key = key;
+        }
+    }
+
+
+    public EncryptorTest(PlainTextValue plainText, CipherAlgorithm cipherAlgorithm) {
+        this.plainText = plainText;
         this.cipherAlgorithm = cipherAlgorithm;
     }
 
@@ -50,9 +78,6 @@ public class EncryptorTest{
             this.value = value;
         }
 
-        public String getValue() {
-            return value;
-        }
     }
 
 
@@ -72,18 +97,22 @@ public class EncryptorTest{
     @Test
     public void testEncryptWithoutVerify() throws Exception {
 
-        String encryptedValue = ENCRYPTOR.encode(value.getValue(), cipherAlgorithm);
+        for (Encryptor encryptor: ENCRYPTORS) {
 
-        switch (value) {
-            case NULL_STRING:
-                Assert.assertEquals("A null value must return a null ciphertext", encryptedValue, null);
-                break;
+            String encryptedValue = encryptor.encode(plainText.value, cipherAlgorithm);
 
-            default:
-                Assert.assertNotEquals("The encrypted value must not be null", encryptedValue, null);
-                Assert.assertNotEquals("The encrypted value must be different then the original one",
-                    encryptedValue, value.getValue());
+            switch (plainText) {
+                case NULL_STRING:
+                    Assert.assertEquals("A null value must return a null ciphertext", encryptedValue, null);
+                    break;
+
+                default:
+                    Assert.assertNotEquals("The encrypted value must not be null", encryptedValue, null);
+                    Assert.assertNotEquals("The encrypted value must be different then the original one",
+                        encryptedValue, plainText.value);
+            }
         }
+
 
     }
 
@@ -91,18 +120,19 @@ public class EncryptorTest{
     @Test
     public void testEncryptWithVerify() throws Exception {
 
-        String encryptedValue = ENCRYPTOR.encode(value.getValue(), cipherAlgorithm);
+        for (Encryptor encryptor: ENCRYPTORS) {
+            String encryptedValue = encryptor.encode(plainText.value, cipherAlgorithm);
 
-        switch (value) {
-            case NULL_STRING:
-                Assert.assertFalse("A null value cannot be verified",
-                    ENCRYPTOR.verify(value.getValue(), cipherAlgorithm, encryptedValue));
-                break;
+            switch (plainText) {
+                case NULL_STRING:
+                    Assert.assertFalse("A null value cannot be verified",
+                        encryptor.verify(plainText.value, cipherAlgorithm, encryptedValue));
+                    break;
 
-            default:
-                Assert.assertTrue("The verification of the ciphertext and plaintext has failed",
-                    ENCRYPTOR.verify(value.getValue(), cipherAlgorithm, encryptedValue));
-
+                default:
+                    Assert.assertTrue("The verification of the ciphertext and plaintext has failed",
+                        encryptor.verify(plainText.value, cipherAlgorithm, encryptedValue));
+            }
         }
 
     }
