@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+
 import org.apache.syncope.common.lib.policy.DefaultPasswordRuleConf;
 import org.apache.syncope.core.persistence.api.entity.ExternalResource;
 import org.apache.syncope.core.persistence.api.entity.Implementation;
@@ -66,8 +67,8 @@ public class DefaultPasswordGenerator implements PasswordGenerator {
 
         // add realm policies
         realms.forEach(r -> Optional.ofNullable(r.getPasswordPolicy()).
-                filter(p -> !policies.contains(p)).
-                ifPresent(policies::add));
+            filter(p -> !policies.contains(p)).
+            ifPresent(policies::add));
 
         return generate(policies);
     }
@@ -81,7 +82,7 @@ public class DefaultPasswordGenerator implements PasswordGenerator {
                         impl,
                         () -> perContextPasswordRules.get(impl.getKey()),
                         instance -> perContextPasswordRules.put(impl.getKey(), instance)).
-                        ifPresent(result::add);
+                    ifPresent(result::add);
             } catch (Exception e) {
                 LOG.warn("While building {}", impl, e);
             }
@@ -95,8 +96,8 @@ public class DefaultPasswordGenerator implements PasswordGenerator {
         List<DefaultPasswordRuleConf> ruleConfs = new ArrayList<>();
 
         policies.stream().forEach(policy -> getPasswordRules(policy).stream().
-                filter(rule -> rule.getConf() instanceof DefaultPasswordRuleConf).
-                forEach(rule -> ruleConfs.add((DefaultPasswordRuleConf) rule.getConf())));
+            filter(rule -> rule.getConf() instanceof DefaultPasswordRuleConf).
+            forEach(rule -> ruleConfs.add((DefaultPasswordRuleConf) rule.getConf())));
 
         return generate(merge(ruleConfs));
     }
@@ -137,12 +138,12 @@ public class DefaultPasswordGenerator implements PasswordGenerator {
 
             if (!ruleConf.getSpecialChars().isEmpty()) {
                 result.getSpecialChars().addAll(ruleConf.getSpecialChars().stream().
-                        filter(c -> !result.getSpecialChars().contains(c)).collect(Collectors.toList()));
+                    filter(c -> !result.getSpecialChars().contains(c)).collect(Collectors.toList()));
             }
 
             if (!ruleConf.getIllegalChars().isEmpty()) {
                 result.getIllegalChars().addAll(ruleConf.getIllegalChars().stream().
-                        filter(c -> !result.getIllegalChars().contains(c)).collect(Collectors.toList()));
+                    filter(c -> !result.getIllegalChars().contains(c)).collect(Collectors.toList()));
             }
 
             if (ruleConf.getRepeatSame() > result.getRepeatSame()) {
@@ -155,13 +156,13 @@ public class DefaultPasswordGenerator implements PasswordGenerator {
 
             if (!ruleConf.getWordsNotPermitted().isEmpty()) {
                 result.getWordsNotPermitted().addAll(ruleConf.getWordsNotPermitted().stream().
-                        filter(w -> !result.getWordsNotPermitted().contains(w)).collect(Collectors.toList()));
+                    filter(w -> !result.getWordsNotPermitted().contains(w)).collect(Collectors.toList()));
             }
         });
 
         if (result.getMinLength() == 0) {
             result.setMinLength(
-                    result.getMaxLength() < MIN_LENGTH_IF_ZERO ? result.getMaxLength() : MIN_LENGTH_IF_ZERO);
+                result.getMaxLength() < MIN_LENGTH_IF_ZERO ? result.getMaxLength() : MIN_LENGTH_IF_ZERO);
         }
         if (result.getMinLength() > result.getMaxLength()) {
             result.setMaxLength(result.getMinLength());
@@ -172,13 +173,13 @@ public class DefaultPasswordGenerator implements PasswordGenerator {
 
     protected String generate(final DefaultPasswordRuleConf ruleConf) {
         List<CharacterRule> characterRules = DefaultPasswordRule.conf2Rules(ruleConf).stream().
-                filter(CharacterRule.class::isInstance).map(CharacterRule.class::cast).
-                collect(Collectors.toList());
+            filter(CharacterRule.class::isInstance).map(CharacterRule.class::cast).
+            collect(Collectors.toList());
         if (characterRules.isEmpty()) {
             int halfMinLength = ruleConf.getMinLength() / 2;
             characterRules = List.of(
-                    new CharacterRule(EnglishCharacterData.Alphabetical, halfMinLength),
-                    new CharacterRule(EnglishCharacterData.Digit, halfMinLength));
+                new CharacterRule(EnglishCharacterData.Alphabetical, halfMinLength),
+                new CharacterRule(EnglishCharacterData.Digit, halfMinLength));
         }
         return SecureRandomUtils.passwordGenerator().generatePassword(ruleConf.getMinLength(), characterRules);
     }

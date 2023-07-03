@@ -1,4 +1,4 @@
-package org.apache.syncope.core.spring.security;
+package org.apache.syncope.core.spring.security.utils.impl;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;

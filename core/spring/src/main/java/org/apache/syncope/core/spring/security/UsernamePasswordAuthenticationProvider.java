@@ -19,6 +19,7 @@
 package org.apache.syncope.core.spring.security;
 
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.syncope.common.keymaster.client.api.DomainOps;
@@ -55,11 +56,11 @@ public class UsernamePasswordAuthenticationProvider implements AuthenticationPro
     protected final SecurityProperties securityProperties;
 
     public UsernamePasswordAuthenticationProvider(
-            final DomainOps domainOps,
-            final AuthDataAccessor dataAccessor,
-            final UserProvisioningManager provisioningManager,
-            final DefaultCredentialChecker credentialChecker,
-            final SecurityProperties securityProperties) {
+        final DomainOps domainOps,
+        final AuthDataAccessor dataAccessor,
+        final UserProvisioningManager provisioningManager,
+        final DefaultCredentialChecker credentialChecker,
+        final SecurityProperties securityProperties) {
 
         this.domainOps = domainOps;
         this.dataAccessor = dataAccessor;
@@ -72,16 +73,16 @@ public class UsernamePasswordAuthenticationProvider implements AuthenticationPro
     public Authentication authenticate(final Authentication authentication) {
         Domain domain;
         if (SyncopeConstants.MASTER_DOMAIN.equals(
-                SyncopeAuthenticationDetails.class.cast(authentication.getDetails()).getDomain())) {
+            SyncopeAuthenticationDetails.class.cast(authentication.getDetails()).getDomain())) {
 
             domain = new Domain.Builder(SyncopeConstants.MASTER_DOMAIN).build();
         } else {
             try {
                 domain = domainOps.read(
-                        SyncopeAuthenticationDetails.class.cast(authentication.getDetails()).getDomain());
+                    SyncopeAuthenticationDetails.class.cast(authentication.getDetails()).getDomain());
             } catch (NotFoundException | KeymasterException e) {
                 throw new BadCredentialsException("Could not find domain "
-                        + SyncopeAuthenticationDetails.class.cast(authentication.getDetails()).getDomain(), e);
+                    + SyncopeAuthenticationDetails.class.cast(authentication.getDetails()).getDomain(), e);
             }
         }
 
@@ -98,18 +99,18 @@ public class UsernamePasswordAuthenticationProvider implements AuthenticationPro
             if (SyncopeConstants.MASTER_DOMAIN.equals(domain.getKey())) {
                 credentialChecker.checkIsDefaultAdminPasswordInUse();
                 authenticated = ENCRYPTOR.verify(
-                        authentication.getCredentials().toString(),
-                        securityProperties.getAdminPasswordAlgorithm(),
-                        securityProperties.getAdminPassword());
+                    authentication.getCredentials().toString(),
+                    securityProperties.getAdminPasswordAlgorithm(),
+                    securityProperties.getAdminPassword());
             } else {
                 authenticated = ENCRYPTOR.verify(
-                        authentication.getCredentials().toString(),
-                        domain.getAdminCipherAlgorithm(),
-                        domain.getAdminPassword());
+                    authentication.getCredentials().toString(),
+                    domain.getAdminCipherAlgorithm(),
+                    domain.getAdminPassword());
             }
         } else {
             Triple<User, Boolean, String> authResult = AuthContextUtils.callAsAdmin(domain.getKey(),
-                    () -> dataAccessor.authenticate(domain.getKey(), authentication));
+                () -> dataAccessor.authenticate(domain.getKey(), authentication));
             authenticated = authResult.getMiddle();
             if (authResult.getLeft() != null && authResult.getMiddle() != null) {
                 username.set(authResult.getLeft().getUsername());
@@ -117,9 +118,9 @@ public class UsernamePasswordAuthenticationProvider implements AuthenticationPro
                 if (!authenticated) {
                     AuthContextUtils.callAsAdmin(domain.getKey(), () -> {
                         provisioningManager.internalSuspend(
-                                authResult.getLeft().getKey(),
-                                securityProperties.getAdminUser(),
-                                "Failed authentication");
+                            authResult.getLeft().getKey(),
+                            securityProperties.getAdminUser(),
+                            "Failed authentication");
                         return null;
                     });
                 }
@@ -131,31 +132,31 @@ public class UsernamePasswordAuthenticationProvider implements AuthenticationPro
         }
 
         return finalizeAuthentication(
-                authenticated, domain.getKey(), username.get(), delegationKey.get(), authentication);
+            authenticated, domain.getKey(), username.get(), delegationKey.get(), authentication);
     }
 
     protected Authentication finalizeAuthentication(
-            final Boolean authenticated,
-            final String domain,
-            final String username,
-            final String delegationKey,
-            final Authentication authentication) {
+        final Boolean authenticated,
+        final String domain,
+        final String username,
+        final String delegationKey,
+        final Authentication authentication) {
 
         UsernamePasswordAuthenticationToken token;
         if (BooleanUtils.isTrue(authenticated)) {
             token = AuthContextUtils.callAsAdmin(domain, () -> {
                 UsernamePasswordAuthenticationToken upat = new UsernamePasswordAuthenticationToken(
-                        username,
-                        null,
-                        dataAccessor.getAuthorities(username, delegationKey));
+                    username,
+                    null,
+                    dataAccessor.getAuthorities(username, delegationKey));
                 upat.setDetails(authentication.getDetails());
                 dataAccessor.audit(
-                        username,
-                        delegationKey,
-                        Result.SUCCESS,
-                        true,
-                        authentication,
-                        "Successfully authenticated, with entitlements: " + upat.getAuthorities());
+                    username,
+                    delegationKey,
+                    Result.SUCCESS,
+                    true,
+                    authentication,
+                    "Successfully authenticated, with entitlements: " + upat.getAuthorities());
                 return upat;
             });
 
@@ -163,12 +164,12 @@ public class UsernamePasswordAuthenticationProvider implements AuthenticationPro
         } else {
             AuthContextUtils.callAsAdmin(domain, () -> {
                 dataAccessor.audit(
-                        username,
-                        delegationKey,
-                        Result.FAILURE,
-                        false,
-                        authentication,
-                        "Not authenticated");
+                    username,
+                    delegationKey,
+                    Result.FAILURE,
+                    false,
+                    authentication,
+                    "Not authenticated");
                 return null;
             });
 
