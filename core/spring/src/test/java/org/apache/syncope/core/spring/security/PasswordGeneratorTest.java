@@ -1,16 +1,14 @@
 package org.apache.syncope.core.spring.security;
 
+import static org.apache.syncope.core.spring.security.utils.TestUtils.DEFAULT_MAX_LENGTH;
+import static org.apache.syncope.core.spring.security.utils.TestUtils.DEFAULT_MIN_LENGTH;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.syncope.common.lib.policy.DefaultPasswordRuleConf;
 import org.apache.syncope.core.persistence.api.entity.policy.PasswordPolicy;
-import org.apache.syncope.core.provisioning.api.serialization.POJOHelper;
 import org.apache.syncope.core.spring.SpringTestConfiguration;
 import org.apache.syncope.core.spring.security.utils.TestUtils;
-import org.apache.syncope.core.spring.security.utils.impl.TestImplementation;
-import org.apache.syncope.core.spring.security.utils.impl.TestPasswordPolicy;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -44,9 +42,7 @@ public class PasswordGeneratorTest {
                     DefaultPasswordRuleConf defaultPasswordRuleConf = TestUtils.createDefaultPasswordRuleConfig();
                     // Be sure to check password generation matches the digit
                     defaultPasswordRuleConf.setDigit(1);
-                    TestImplementation passwordRule = new TestImplementation();
-                    passwordRule.setBody(POJOHelper.serialize(defaultPasswordRuleConf));
-                    policies = List.of(new TestPasswordPolicy(passwordRule));
+                    policies = TestUtils.getPasswdPolicies(defaultPasswordRuleConf);
                     break;
             }
 
@@ -74,47 +70,24 @@ public class PasswordGeneratorTest {
 
 
     @ParameterizedTest
-    @MethodSource("buildRules")
-    public void testOtherGeneratorsMultipleRules(GenerationRule generationRule) {
-        DefaultPasswordRuleConf[] defaultGenerators = TestUtils.buildOtherGenerators();
-        for (DefaultPasswordRuleConf generator : defaultGenerators) {
-            testMultipleRules(generator, generationRule);
-        }
-    }
+    @MethodSource("buildGenerators")
+    public void testCustomGenerators(DefaultGenerator generator) {
 
-    @Test
-    public void testFixedDigitsPasswd() {
-        DefaultPasswordRuleConf onlyDigitGenerator = TestUtils.createLowMaxLengthOnlyDigitConfig();
-        TestImplementation passwordRule = new TestImplementation();
-        passwordRule.setBody(POJOHelper.serialize(onlyDigitGenerator));
-        List<PasswordPolicy> policies = List.of(new TestPasswordPolicy(passwordRule));
+        DefaultPasswordRuleConf customPasswordRuleConf = TestUtils.buildCustomGenerator(generator);
+        List<PasswordPolicy> policies = TestUtils.getPasswdPolicies(customPasswordRuleConf);
 
         String generatedPassword = passwordGenerator.generate(policies);
-        assertTrue(generatedPassword.chars().allMatch(Character::isDigit));
-    }
-
-    @Test
-    public void testFixedAlphabeticalPasswd() {
-        DefaultPasswordRuleConf onlyAlphabeticalConfig = TestUtils.createLowMaxLengthOnlyAlphabeticalConfig();
-        TestImplementation passwordRule = new TestImplementation();
-        passwordRule.setBody(POJOHelper.serialize(onlyAlphabeticalConfig));
-        List<PasswordPolicy> policies = List.of(new TestPasswordPolicy(passwordRule));
-
-        String generatedPassword = passwordGenerator.generate(policies);
-        assertTrue(generatedPassword.chars().allMatch(Character::isAlphabetic));
+        verifyCustomGenerator(generatedPassword, customPasswordRuleConf);
     }
 
 
     private void testMultipleRules(DefaultPasswordRuleConf defaultPasswordRuleConf, GenerationRule generationRule) {
         setGenerationRule(defaultPasswordRuleConf, generationRule);
 
-        TestImplementation passwordRule = new TestImplementation();
-        passwordRule.setBody(POJOHelper.serialize(defaultPasswordRuleConf));
-        List<PasswordPolicy> policies = List.of(new TestPasswordPolicy(passwordRule));
-
-        String generatedPassword = passwordGenerator.generate(policies);
+        String generatedPassword = passwordGenerator.generate(TestUtils.getPasswdPolicies(defaultPasswordRuleConf));
         assertRule(generatedPassword, generationRule);
     }
+
 
     private void assertRule(String generatedPassword, GenerationRule generationRule) {
         switch (generationRule) {
@@ -144,6 +117,27 @@ public class PasswordGeneratorTest {
         }
     }
 
+
+    public static void verifyCustomGenerator(String generatedPassword, DefaultPasswordRuleConf defaultPasswordRuleConf) {
+        assertTrue(TestUtils.verifyAlphabeticalRule(generatedPassword, defaultPasswordRuleConf.getAlphabetical()));
+
+        assertTrue(TestUtils.verifyDigitRule(generatedPassword, defaultPasswordRuleConf.getDigit()));
+
+        assertTrue(TestUtils.verifyLowercaseRule(generatedPassword, defaultPasswordRuleConf.getLowercase()));
+
+        assertTrue(TestUtils.verifyUppercaseRule(generatedPassword, defaultPasswordRuleConf.getUppercase()));
+
+        if (defaultPasswordRuleConf.getRepeatSame() > 0) {
+            assertTrue(TestUtils.verifyRepeatedRule(generatedPassword, defaultPasswordRuleConf.getRepeatSame()));
+        }
+        int minLength = defaultPasswordRuleConf.getMinLength() > 0 ? defaultPasswordRuleConf.getMinLength() : DEFAULT_MIN_LENGTH;
+        int maxLength = defaultPasswordRuleConf.getMaxLength() > 0 ? defaultPasswordRuleConf.getMaxLength() : DEFAULT_MAX_LENGTH;
+        if (maxLength < DEFAULT_MIN_LENGTH) maxLength = minLength;
+
+        assertTrue(TestUtils.verifyLength(generatedPassword, minLength, maxLength));
+    }
+
+
     public enum PoliciesType {
         VALID_LIST,
         INVALID_LIST,
@@ -157,6 +151,16 @@ public class PasswordGeneratorTest {
         LOWERCASE,
         DIGIT,
         SPECIAL,
+    }
+
+
+    public enum DefaultGenerator {
+        INVALID_LENGTH,
+        FIXED_ALPHABETICAL,
+        FIXED_UPPERCASE,
+        FIXED_LOWERCASE,
+        FIXED_DIGIT,
+        REPEATED_CHARS,
     }
 
 
@@ -181,4 +185,14 @@ public class PasswordGeneratorTest {
         return parameters.stream();
     }
 
+
+    private static Stream<Arguments> buildGenerators() {
+        List<Arguments> parameters = new ArrayList<>();
+
+        for (DefaultGenerator generator : DefaultGenerator.values()) {
+            Arguments argument = Arguments.of(generator);
+            parameters.add(argument);
+        }
+        return parameters.stream();
+    }
 }
